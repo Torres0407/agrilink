@@ -1,4 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import card1 from "../assets/image3.png";
+import card3 from "./assets/image2.png";
+import card4 from "./assets/image1.png";
+import card5 from "./assets/image4.png";
+import card6 from "./assets/image5.png";
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Upload, 
@@ -288,7 +293,7 @@ const HowItWorks = () => {
       title: "Snap & upload",
       desc: "Capture all sides of the product and submit it for review.",
       icon: <Maximize size={32} className="text-gray-300" />,
-      img: "https://picsum.photos/seed/scan1/800/1000"
+      img: card1
     },
     {
       title: "Smart AI analysis",
@@ -300,7 +305,7 @@ const HowItWorks = () => {
       title: "Instant clarity",
       desc: "Know immediately if it's authentic or potentially fake.",
       icon: <CheckSquare size={32} className="text-gray-300" />,
-      img: "https://picsum.photos/seed/scan3/800/1000"
+      img: card3
     }
   ];
 
