@@ -435,17 +435,17 @@ const Testimonials = () => {
     {
       name: "Amara, 23",
       text: "“I bought a popular skincare serum online and something felt off. I searched it here and saw the packaging differences immediately. It turned out to be fake. This platform saved my skin.”",
-      img: "https://images.unsplash.com/photo-1531123897727-8f129e1688ce?auto=format&fit=crop&w=800&q=80"
+      img: card4
     },
     {
       name: "Abdul, 42",
       text: "“I always worry about fake medicines for my kids. Being able to check the product before using it gives me peace of mind. Every parent in Nigeria needs this.”",
-      img: "https://images.unsplash.com/photo-1522529599102-193c0d76b5b6?auto=format&fit=crop&w=800&q=80"
+      img: card5
     },
     {
       name: "Tunde, 29",
       text: "“I bought a phone charger that looked original but kept overheating. After checking here, I realized it wasn't authentic. Now I verify before I buy anything tech.”",
-      img: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=800&q=80"
+      img: card6
     }
   ];
 
