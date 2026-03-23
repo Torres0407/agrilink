@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { GoogleGenAI } from "@google/genai";
 import { 
   Upload, 
   Maximize, 
@@ -1667,15 +1668,64 @@ const GamePage = ({ onBack }: { onBack: () => void }) => {
   const [gameState, setGameState] = useState<'playing' | 'correct' | 'wrong'>('playing');
   const [showStreakModal, setShowStreakModal] = useState(false);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [products, setProducts] = useState<{ id: number, img: string, isOriginal: boolean }[]>([]);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
+  const generateGameImages = async () => {
+    setIsLoading(true);
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      
+      // Generate Original
+      const originalResponse = await ai.models.generateContent({
+        model: 'gemini-2.5-flash-image',
+        contents: [{ text: 'A high quality professional studio photograph of a premium medicine product box, authentic packaging, clear labels, NAFDAC number, hologram seal, white background, centered, filling the frame' }],
+        config: { imageConfig: { aspectRatio: "1:1" } }
+      });
+
+      // Generate Fake
+      const fakeResponse = await ai.models.generateContent({
+        model: 'gemini-2.5-flash-image',
+        contents: [{ text: 'A high quality professional studio photograph of a counterfeit medicine product box, slightly blurry labels, missing hologram, generic packaging, white background, centered, filling the frame' }],
+        config: { imageConfig: { aspectRatio: "1:1" } }
+      });
+
+      const originalImg = originalResponse.candidates?.[0]?.content?.parts?.find(p => p.inlineData)?.inlineData?.data;
+      const fakeImg = fakeResponse.candidates?.[0]?.content?.parts?.find(p => p.inlineData)?.inlineData?.data;
+
+      if (originalImg && fakeImg) {
+        const newProducts = [
+          { id: 1, img: `data:image/png;base64,${originalImg}`, isOriginal: true },
+          { id: 2, img: `data:image/png;base64,${fakeImg}`, isOriginal: false }
+        ].sort(() => Math.random() - 0.5); // Shuffle
+        setProducts(newProducts);
+      } else {
+        // Fallback if generation fails
+        setProducts([
+          { id: 1, img: "https://images.unsplash.com/photo-1563636619-e9108b9355bb?auto=format&fit=crop&w=800&q=80", isOriginal: true },
+          { id: 2, img: "https://images.unsplash.com/photo-1528740561666-dc2479dc08ab?auto=format&fit=crop&w=800&q=80", isOriginal: false },
+        ]);
+      }
+    } catch (error) {
+      console.error("Error generating game images:", error);
+      setProducts([
+        { id: 1, img: "https://images.unsplash.com/photo-1563636619-e9108b9355bb?auto=format&fit=crop&w=800&q=80", isOriginal: true },
+        { id: 2, img: "https://images.unsplash.com/photo-1528740561666-dc2479dc08ab?auto=format&fit=crop&w=800&q=80", isOriginal: false },
+      ]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
+    generateGameImages();
+    
     // Initialize audio
     const audio = new Audio('https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3');
     audio.loop = true;
     audioRef.current = audio;
 
-    // Try to play (browser might block autoplay until interaction)
     const playAudio = () => {
       audio.play().catch(err => {
         console.log("Autoplay blocked, waiting for interaction", err);
@@ -1701,21 +1751,14 @@ const GamePage = ({ onBack }: { onBack: () => void }) => {
     }
   };
 
-  const products = [
-    { id: 1, img: "https://images.unsplash.com/photo-1563636619-e9108b9355bb?auto=format&fit=crop&w=800&q=80", isOriginal: true },
-    { id: 2, img: "https://images.unsplash.com/photo-1528740561666-dc2479dc08ab?auto=format&fit=crop&w=800&q=80", isOriginal: false },
-  ];
-
   const handleCheck = () => {
     if (selectedId === null) return;
     
-    // Find the product that was selected
     const selectedProduct = products.find(p => p.id === selectedId);
     
     if (selectedProduct && selectedProduct.isOriginal) {
       setGameState('correct');
       setPoints(prev => prev + 10);
-      // Trigger streak modal on correct answer
       setTimeout(() => setShowStreakModal(true), 500);
     } else {
       setGameState('wrong');
@@ -1725,12 +1768,13 @@ const GamePage = ({ onBack }: { onBack: () => void }) => {
   const handleNext = () => {
     setGameState('playing');
     setSelectedId(null);
-    // In a real app, we'd load new products here
+    generateGameImages();
   };
 
   const handleTryAgain = () => {
     setGameState('playing');
     setSelectedId(null);
+    generateGameImages();
   };
 
   return (
@@ -1795,46 +1839,55 @@ const GamePage = ({ onBack }: { onBack: () => void }) => {
           <div className={`grid gap-8 ${gameState === 'wrong' ? 'grid-cols-2 col-span-2' : 'grid-cols-1'}`}>
             {gameState === 'playing' && (
               <div className="grid md:grid-cols-2 gap-8">
-                {products.map((p) => (
-                  <motion.div
-                    key={p.id}
-                    onClick={() => setSelectedId(p.id)}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    className={`bg-gray-50 rounded-[40px] p-12 aspect-square relative cursor-pointer group border-2 transition-all ${
-                      selectedId === p.id ? 'border-brand-purple' : 'border-transparent'
-                    }`}
-                  >
-                    <div className={`absolute top-8 right-8 w-8 h-8 rounded-lg border-2 flex items-center justify-center transition-all ${
-                      selectedId === p.id ? 'bg-brand-purple border-brand-purple' : 'border-gray-200 group-hover:border-brand-purple'
-                    }`}>
-                      {selectedId === p.id ? (
-                        <Check size={20} className="text-white" />
-                      ) : (
-                        <Square size={20} className="text-transparent group-hover:text-brand-purple/20" />
-                      )}
+                {isLoading ? (
+                  [1, 2].map(i => (
+                    <div key={i} className="bg-gray-50 rounded-[40px] p-12 aspect-square flex flex-col items-center justify-center gap-4 animate-pulse">
+                      <Loader2 className="animate-spin text-brand-purple" size={32} />
+                      <span className="text-sm font-bold text-gray-400">Generating boxes...</span>
                     </div>
-                    <img 
-                      src={p.img} 
-                      alt="Product" 
-                      className="w-full h-full object-contain mix-blend-multiply"
-                      referrerPolicy="no-referrer"
-                    />
-                  </motion.div>
-                ))}
+                  ))
+                ) : (
+                  products.map((p) => (
+                    <motion.div
+                      key={p.id}
+                      onClick={() => setSelectedId(p.id)}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className={`bg-gray-50 rounded-[40px] p-4 aspect-square relative cursor-pointer group border-2 transition-all ${
+                        selectedId === p.id ? 'border-brand-purple' : 'border-transparent'
+                      }`}
+                    >
+                      <div className={`absolute top-6 right-6 w-8 h-8 rounded-lg border-2 flex items-center justify-center transition-all z-10 ${
+                        selectedId === p.id ? 'bg-brand-purple border-brand-purple' : 'border-gray-200 group-hover:border-brand-purple'
+                      }`}>
+                        {selectedId === p.id ? (
+                          <Check size={20} className="text-white" />
+                        ) : (
+                          <Square size={20} className="text-transparent group-hover:text-brand-purple/20" />
+                        )}
+                      </div>
+                      <img 
+                        src={p.img} 
+                        alt="Product" 
+                        className="w-full h-full object-cover rounded-[32px]"
+                        referrerPolicy="no-referrer"
+                      />
+                    </motion.div>
+                  ))
+                )}
               </div>
             )}
 
             {gameState === 'correct' && (
               <div className="flex flex-col md:flex-row items-center gap-12 text-left">
-                <div className="bg-brand-purple/5 rounded-[40px] p-12 aspect-square relative border-2 border-brand-purple w-full max-w-sm">
-                  <div className="absolute top-8 right-8 w-8 h-8 rounded-lg bg-brand-purple flex items-center justify-center">
+                <div className="bg-brand-purple/5 rounded-[40px] p-4 aspect-square relative border-2 border-brand-purple w-full max-w-sm">
+                  <div className="absolute top-6 right-6 w-8 h-8 rounded-lg bg-brand-purple flex items-center justify-center z-10">
                     <Check size={20} className="text-white" />
                   </div>
                   <img 
                     src={products.find(p => p.isOriginal)?.img} 
                     alt="Original Product" 
-                    className="w-full h-full object-contain mix-blend-multiply"
+                    className="w-full h-full object-cover rounded-[32px]"
                     referrerPolicy="no-referrer"
                   />
                 </div>
@@ -1872,25 +1925,25 @@ const GamePage = ({ onBack }: { onBack: () => void }) => {
             {gameState === 'wrong' && (
               <>
                 {/* Comparison View */}
-                <div className="bg-red-50 rounded-[40px] p-12 aspect-square relative border-2 border-red-500">
-                  <div className="absolute top-8 right-8 w-8 h-8 rounded-lg bg-red-500 flex items-center justify-center">
+                <div className="bg-red-50 rounded-[40px] p-4 aspect-square relative border-2 border-red-500">
+                  <div className="absolute top-6 right-6 w-8 h-8 rounded-lg bg-red-500 flex items-center justify-center z-10">
                     <X size={20} className="text-white" />
                   </div>
                   <img 
                     src={products.find(p => !p.isOriginal)?.img} 
                     alt="Fake Product" 
-                    className="w-full h-full object-contain mix-blend-multiply opacity-80"
+                    className="w-full h-full object-cover rounded-[32px] opacity-80"
                     referrerPolicy="no-referrer"
                   />
                 </div>
-                <div className="bg-brand-purple/5 rounded-[40px] p-12 aspect-square relative border-2 border-brand-purple">
-                  <div className="absolute top-8 right-8 w-8 h-8 rounded-lg bg-brand-purple flex items-center justify-center">
+                <div className="bg-brand-purple/5 rounded-[40px] p-4 aspect-square relative border-2 border-brand-purple">
+                  <div className="absolute top-6 right-6 w-8 h-8 rounded-lg bg-brand-purple flex items-center justify-center z-10">
                     <Check size={20} className="text-white" />
                   </div>
                   <img 
                     src={products.find(p => p.isOriginal)?.img} 
                     alt="Original Product" 
-                    className="w-full h-full object-contain mix-blend-multiply"
+                    className="w-full h-full object-cover rounded-[32px]"
                     referrerPolicy="no-referrer"
                   />
                 </div>
